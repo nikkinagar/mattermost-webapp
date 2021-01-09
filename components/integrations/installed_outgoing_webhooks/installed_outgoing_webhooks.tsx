@@ -1,7 +1,6 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import PropTypes from 'prop-types';
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
@@ -10,70 +9,37 @@ import Constants from 'utils/constants';
 import BackstageList from 'components/backstage/components/backstage_list.jsx';
 import InstalledOutgoingWebhook, {matchesFilter} from 'components/integrations/installed_outgoing_webhook.jsx';
 import FormattedMarkdownMessage from 'components/formatted_markdown_message';
+import {Team} from "mattermost-redux/types/teams";
+import {UserProfile} from "mattermost-redux/types/users";
+import {OutgoingWebhook} from "mattermost-redux/types/integrations";
+import {ActionResult} from 'mattermost-redux/types/actions';
+import {IDMappedObjects} from "mattermost-redux/types/utilities";
+import {Channel} from "mattermost-redux/types/channels";
 
-export default class InstalledOutgoingWebhooks extends React.PureComponent {
-    static propTypes = {
-
-        /**
-        *  Data used in passing down as props for webhook modifications
-        */
-        team: PropTypes.object,
-
-        /**
-        * Data used for checking if webhook is created by current user
-        */
-        user: PropTypes.object,
-
-        /**
-        *  Data used for checking modification privileges
-        */
-        canManageOthersWebhooks: PropTypes.bool,
-
-        /**
-        * Data used in passing down as props for showing webhook details
-        */
-        outgoingWebhooks: PropTypes.array,
-
-        /**
-        * Data used in sorting for displaying list and as props channel details
-        */
-        channels: PropTypes.object,
-
-        /**
-        *  Data used in passing down as props for webhook -created by label
-        */
-        users: PropTypes.object,
-
-        /**
-        *  Data used in passing as argument for loading webhooks
-        */
-        teamId: PropTypes.string,
-
-        actions: PropTypes.shape({
-
-            /**
-            * The function to call for removing outgoingWebhook
-            */
-            removeOutgoingHook: PropTypes.func,
-
-            /**
-            * The function to call for outgoingWebhook List and for the status of api
-            */
-            loadOutgoingHooksAndProfilesForTeam: PropTypes.func,
-
-            /**
-            * The function to call for regeneration of webhook token
-            */
-            regenOutgoingHookToken: PropTypes.func,
-        }),
-
-        /**
-        * Whether or not outgoing webhooks are enabled.
-        */
-        enableOutgoingWebhooks: PropTypes.bool,
+export type Props = {
+    team: Team;
+    user: UserProfile;
+    canManageOtherWebhooks: boolean;
+    outgoingWebhooks: OutgoingWebhook[]
+    enableOutgoingWebhooks: boolean;
+    channels: IDMappedObjects<Channel>;
+    users: IDMappedObjects<UserProfile>;
+    actions: {
+        loadOutgoingHooksAndProfilesForTeam: (teamId: string, startPageNumber: number,
+                                              pageSize: string) => Promise<ActionResult>;
+        regenOutgoingHookToken: (hookId: string) => Promise<ActionResult>;
+        removeOutgoingHook: (hookId: string) => Promise<ActionResult>;
     }
 
-    constructor(props) {
+};
+
+type State = {
+    loading: boolean;
+};
+
+export default class InstalledOutgoingWebhooks extends React.PureComponent<Props, State> {
+
+    constructor(props: Props) {
         super(props);
 
         this.state = {
@@ -84,7 +50,7 @@ export default class InstalledOutgoingWebhooks extends React.PureComponent {
     componentDidMount() {
         if (this.props.enableOutgoingWebhooks) {
             this.props.actions.loadOutgoingHooksAndProfilesForTeam(
-                this.props.teamId,
+                this.props.team.id,
                 Constants.Integrations.START_PAGE_NUM,
                 Constants.Integrations.PAGE_SIZE,
             ).then(
@@ -93,15 +59,15 @@ export default class InstalledOutgoingWebhooks extends React.PureComponent {
         }
     }
 
-    regenOutgoingWebhookToken = (outgoingWebhook) => {
+    regenOutgoingWebhookToken = (outgoingWebhook: OutgoingWebhook) => {
         this.props.actions.regenOutgoingHookToken(outgoingWebhook.id);
     }
 
-    removeOutgoingHook = (outgoingWebhook) => {
+    removeOutgoingHook = (outgoingWebhook: OutgoingWebhook) => {
         this.props.actions.removeOutgoingHook(outgoingWebhook.id);
     }
 
-    outgoingWebhookCompare = (a, b) => {
+    outgoingWebhookCompare = (a: OutgoingWebhook, b: OutgoingWebhook) => {
         let displayNameA = a.display_name;
         if (!displayNameA) {
             const channelA = this.props.channels[a.channel_id];
@@ -124,11 +90,11 @@ export default class InstalledOutgoingWebhooks extends React.PureComponent {
         return displayNameA.localeCompare(displayNameB);
     }
 
-    outgoingWebhooks = (filter) => this.props.outgoingWebhooks.
+    outgoingWebhooks = (filter: string) => this.props.outgoingWebhooks.
         sort(this.outgoingWebhookCompare).
         filter((outgoingWebhook) => matchesFilter(outgoingWebhook, this.props.channels[outgoingWebhook.channel_id], filter)).
         map((outgoingWebhook) => {
-            const canChange = this.props.canManageOthersWebhooks || this.props.user.id === outgoingWebhook.creator_id;
+            const canChange = this.props.canManageOtherWebhooks || this.props.user.id === outgoingWebhook.creator_id;
             const channel = this.props.channels[outgoingWebhook.channel_id];
             return (
                 <InstalledOutgoingWebhook
@@ -208,7 +174,7 @@ export default class InstalledOutgoingWebhooks extends React.PureComponent {
                 searchPlaceholder={Utils.localizeMessage('installed_outgoing_webhooks.search', 'Search Outgoing Webhooks')}
                 loading={this.state.loading}
             >
-                {(filter) => {
+                {(filter: string) => {
                     const children = this.outgoingWebhooks(filter);
                     return [children, children.length > 0];
                 }}
